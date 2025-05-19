@@ -27,7 +27,6 @@ async def get_orders(db=Depends(get_db)):
     orders = db.query(Order).all()
     return orders
 
-
 @order_router.get("/status/{status}", response_model=List[OrderModel])
 async def get_orders_by_status(
     status: str,
@@ -64,8 +63,6 @@ async def get_order(
 @order_router.post("/create", response_model=OrderModel)
 async def create_order(
     order: OrderModel,
-    background_tasks: BackgroundTasks,
-    current_user: UserSchema = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """Create an order with authenticated user"""
@@ -81,23 +78,11 @@ async def create_order(
         size_depth=order.size_depth,
         message=order.message,
         order_status="Pending",  
-        user_id=current_user.id
     )
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
     
-    # Notify admins about the new order
-    background_tasks.add_task(
-        manager.broadcast_to_admins,
-        {
-            "type": "new_order",
-            "order_id": new_order.id,
-            "product": new_order.product_name,
-            "status": new_order.order_status,
-            "user_id": current_user.id,
-            "username": current_user.username
-        }
-    )
+    
     
     return new_order
